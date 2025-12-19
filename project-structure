@@ -1,5 +1,3 @@
 audience-calendar/
-├── public/
-│   └── index.html
-├── README.md
-└── .gitignore
+└── public/
+    └── index.html   ← V1 stable
