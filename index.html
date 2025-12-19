@@ -1,1 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Shareable Calendar</title>
+  <style>
+:root {
+  /* Standard calendar colors (Google / Apple style) */
+  --bg: #f1f3f4;          /* app background */
+  --surface: #ffffff;    /* calendar cards */
+  --surface2: #f8f9fa;   /* headers / sections */
+
+  --text: #202124;       /* primary text */
+  --muted: #5f6368;      /* secondary text */
+
+  --border: #dadce0;     /* grid lines */
+
+  --accent: #1a73e8;     /* Google Calendar blue */
+  --danger: #d93025;     /* delete / error */
+  --ok: #188038;         /* success */
+
+  --shadow: 0 4px 12px rgba(60,64,67,.15);
+  --radius: 14px;
+}
+
+/* Light mode */
+html[data-theme="light"] {
+  --bg: #f1f3f4;
+  --surface: #ffffff;
+  --surface2: #f8f9fa;
+
+  --text: #202124;
+  --muted: #5f6368;
+
+  --border: #dadce0;
+  --accent: #1a73e8;
+
+  --shadow: 0 4px 12px rgba(60,64,67,.15);
+}
+
+/* Dark mode */
+html[data-theme="dark"] {
+  --bg: #202124;        /* dark background */
+  --surface: #2b2c2f;   /* cards */
+  --surface2: #303134;  /* headers */
+
+  --text: #e8eaed;
+  --muted: #9aa0a6;
+
+  --border: #3c4043;
+  --accent: #8ab4f8;    /* Google blue (dark) */
+
+  --danger: #f28b82;
+  --ok: #81c995;
+
+  --shadow: 0 6px 18px rgba(0,0,0,.6);
+}
+
+*{ box-sizing:border-box; }
+    body{
+      margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text);
+    }
+    a{ color:inherit; }
+    .wrap{ max-width: 1100px; margin: 0 auto; padding: 18px; }
+    .topbar{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      padding: 14px 16px; border:1px solid var(--border); border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--surface), var(--surface2)); box-shadow: var(--shadow);
+    }
+    .brand{ display:flex; align-items:center; gap:10px; font-weight: 750; }
+    .pill{ font-size:12px; padding:4px 10px; border:1px solid var(--border); border-radius:999px; color: var(--muted); }
+    .btn{
+      appearance:none; border:1px solid var(--border); background: var(--surface);
+      padding:10px 12px; border-radius: 999px; color: var(--text);
+      cursor:pointer; font-weight: 650;
+    }
+    .btn:hover{ border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+    .btn.primary{ background: color-mix(in srgb, var(--accent) 18%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+    .btn.danger{ background: color-mix(in srgb, var(--danger) 14%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+    .grid{
+      display:grid; grid-template-columns: 1.25fr .75fr; gap: 16px; margin-top: 16px;
+    }
+    @media (max-width: 920px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      border:1px solid var(--border); border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--surface), var(--surface2)); box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .calendar-head{
+      display:flex; align-items:center; justify-content:space-between; gap: 10px;
+      padding: 14px 14px; border-bottom:1px solid var(--border);
+    }
+    .month{
+      display:flex; align-items:center; gap: 10px;
+      font-weight: 800; letter-spacing: .2px;
+    }
+    .month small{ color: var(--muted); font-weight: 650; }
+
+    .weekdays, .days{
+      display:grid; grid-template-columns: repeat(7, 1fr);
+    }
+    .weekdays div{
+      padding: 10px 12px; font-size: 12px; color: var(--muted);
+      border-bottom:1px solid var(--border);
+    }
+    .day{
+      min-height: 96px;
+      padding: 10px 10px 12px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      cursor:pointer;
+    }
+    .day:nth-child(7n){ border-right:none; }
+    .day.muted{ opacity: .45; }
+    .day .num{ font-weight: 800; font-size: 13px; color: var(--muted); }
+    .day.today .num{ color: var(--accent); }
+    .badges{ display:flex; flex-wrap:wrap; gap:6px; margin-top: 8px; }
+    .badge{
+      font-size: 11px; padding: 4px 8px; border-radius: 999px;
+      border:1px solid var(--border); background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+      max-width: 100%; overflow:hidden; white-space:nowrap; text-overflow: ellipsis;
+    }
+
+    .side-head{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 14px 14px; border-bottom:1px solid var(--border);
+    }
+    .side-head h2{ margin:0; font-size: 14px; }
+    .side-body{ padding: 12px 14px 14px; }
+
+    .hint{ color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+    .events-list{ margin-top: 12px; display:flex; flex-direction:column; gap:10px; }
+    .event{
+      border:1px solid var(--border); border-radius: 14px; padding: 10px 10px;
+      background: color-mix(in srgb, var(--surface) 85%, var(--surface2));
+    }
+    .event .row{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .event .title{ font-weight: 800; font-size: 13px; }
+    .event .meta{ color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .event .notes{ color: var(--muted); font-size: 12px; margin-top: 6px; white-space: pre-wrap; }
+
+    .rowbtns{ display:flex; gap:8px; }
+
+    .modal-backdrop{
+      position: fixed; inset:0; background: rgba(0,0,0,.55);
+      display:none; align-items:center; justify-content:center; padding: 18px; z-index: 50;
+    }
+    .modal{ width: 100%; max-width: 520px; }
+    .modal .modal-head{ padding: 14px 14px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    .modal .modal-head strong{ font-size: 14px; }
+    .modal .modal-body{ padding: 12px 14px 14px; }
+
+    label{ display:block; font-size: 12px; color: var(--muted); margin: 10px 0 6px; }
+    input, textarea{
+      width: 100%; border:1px solid var(--border); border-radius: 12px;
+      padding: 10px 10px; background: var(--surface);
+      color: var(--text);
+      outline:none;
+    }
+    textarea{ min-height: 90px; resize: vertical; }
+    .modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top: 12px; }
+
+    .toast{
+      position: fixed; left: 50%; transform: translateX(-50%);
+      bottom: 18px; background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 10px 12px; border-radius: 999px; box-shadow: var(--shadow);
+      display:none; gap: 10px; align-items:center; z-index: 60;
+      max-width: min(720px, calc(100vw - 24px));
+    }
+    .toast code{ font-size: 12px; color: var(--muted); }
+
+    .small{ font-size: 12px; color: var(--muted); }
+
+    .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; padding: 2px 6px; border:1px solid var(--border); border-radius: 8px; color: var(--muted); }
+
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <div class="topbar">
+      <div class="brand">
+        <span>📅 Shareable Calendar</span>
+        <span class="pill" id="modePill">Local + Share link</span>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+        <button class="btn" id="todayBtn">Today</button>
+        <button class="btn" id="shareBtn">Share link</button>
+        <button class="btn" id="exportBtn">Export JSON</button>
+        <button class="btn" id="importBtn">Import JSON</button>
+        <button class="btn" id="icsBtn">Download .ICS</button>
+        <button class="btn primary" id="themeBtn" aria-label="Toggle theme">
+  <span id="themeIcon">🌙</span>
+</button>
+
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="calendar-head">
+          <div class="month" id="monthTitle">Month</div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn" id="prevBtn">←</button>
+            <button class="btn" id="nextBtn">→</button>
+          </div>
+        </div>
+        <div class="weekdays" id="weekdays"></div>
+        <div class="days" id="days"></div>
+      </div>
+
+      <div class="card">
+        <div class="side-head">
+          <h2 id="selectedTitle">Selected day</h2>
+          <button class="btn primary" id="addBtn">+ Add</button>
+        </div>
+        <div class="side-body">
+          <div class="hint" id="selectedHint">
+            Click a day to view events. Events are stored in your browser (localStorage). Use <b>Share link</b> to create a URL you can send to your audience.
+          </div>
+          <div class="events-list" id="eventsList"></div>
+          <div class="small" style="margin-top:12px;">
+            Tip: If you share a link, recipients see a <b>read-only</b> calendar unless they choose to save it locally.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true">
+    <div class="card modal">
+      <div class="modal-head">
+        <strong id="modalTitle">Add event</strong>
+        <button class="btn" id="closeModalBtn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="small" id="modalDate">Date</div>
+
+        <label for="eventTitle">Title</label>
+        <input id="eventTitle" placeholder="e.g., Live lesson" maxlength="80" />
+
+        <label for="eventTime">Time (optional)</label>
+        <input id="eventTime" placeholder="e.g., 19:00" maxlength="20" />
+
+        <label for="eventNotes">Notes (optional)</label>
+        <textarea id="eventNotes" placeholder="Add details, links, agenda…" maxlength="1200"></textarea>
+
+        <div class="modal-actions">
+          <button class="btn danger" id="deleteBtn" style="display:none;">Delete</button>
+          <button class="btn" id="cancelBtn">Cancel</button>
+          <button class="btn primary" id="saveBtn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden file input for import -->
+  <input type="file" id="fileInput" accept="application/json" style="display:none" />
+
+  <div class="toast" id="toast">
+    <span id="toastMsg">Copied</span>
+    <code id="toastCode"></code>
+  </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- State ----------
+  const STORAGE_KEY = 'shareableCalendar.events.v1';
+  const THEME_KEY = 'shareableCalendar.theme';
+
+  let viewDate = new Date(); // month being viewed
+  let selectedDate = ymd(new Date());
+  let readOnly = false;
+  let editingId = null; // event id when editing
+
+  // events shape: { [ymd]: [{id,title,time,notes,ts}] }
+  let events = loadLocalEvents();
+
+  // If URL contains shared data, load it (read-only preview)
+  const shared = getSharedDataFromUrl();
+  if (shared?.events) {
+    events = shared.events;
+    readOnly = true;
+    $('modePill').textContent = 'Shared view (read-only)';
+    if (shared?.selectedDate) selectedDate = shared.selectedDate;
+    if (shared?.viewYMD) {
+      const d = parseYMD(shared.viewYMD);
+      if (d) viewDate = d;
+    }
+  }
+
+  // theme (force correct theme on load)
+const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+
+// ---------- UI setup ----------
+const weekdayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+$('weekdays').innerHTML = weekdayNames.map(d => `<div>${d}</div>`).join('');
+
+$('prevBtn').addEventListener('click', () => {
+  viewDate = addMonths(viewDate, -1);
+  render();
+});
+
+$('nextBtn').addEventListener('click', () => {
+  viewDate = addMonths(viewDate, 1);
+  render();
+});
+
+$('todayBtn').addEventListener('click', () => {
+  viewDate = new Date();
+  selectedDate = ymd(new Date());
+  render();
+});
+
+// Light / Dark toggle (FIXED)
+$('themeBtn').addEventListener('click', () => {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+
+  html.setAttribute('data-theme', next);
+  localStorage.setItem(THEME_KEY, next);
+});
+
+  $('addBtn').addEventListener('click', () => openModalForNew());
+
+  $('shareBtn').addEventListener('click', async () => {
+    // build share URL with events + view + selected
+    const url = buildShareUrl({ events, selectedDate, viewYMD: ymd(new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)) });
+    await copyToClipboard(url);
+    showToast('Share link copied', url);
+  });
+
+  $('exportBtn').addEventListener('click', () => {
+    const payload = { version: 1, exportedAt: new Date().toISOString(), events };
+    downloadFile('calendar-events.json', JSON.stringify(payload, null, 2), 'application/json');
+  });
+
+  $('importBtn').addEventListener('click', () => {
+    if (readOnly) {
+      showToast('Read-only mode', 'Open the app without a share link to import.');
+      return;
+    }
+    $('fileInput').value = '';
+    $('fileInput').click();
+  });
+
+  $('fileInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const incoming = json?.events ?? json;
+      if (!incoming || typeof incoming !== 'object') throw new Error('Invalid file');
+      events = sanitizeEvents(incoming);
+      saveLocalEvents(events);
+      showToast('Imported', 'Events saved locally');
+      render();
+    } catch(err) {
+      alert('Could not import JSON: ' + err.message);
+    }
+  });
+
+  $('icsBtn').addEventListener('click', () => {
+    const ics = toICS(events);
+    downloadFile('calendar.ics', ics, 'text/calendar');
+  });
+
+  // modal
+  $('closeModalBtn').addEventListener('click', closeModal);
+  $('cancelBtn').addEventListener('click', closeModal);
+  $('saveBtn').addEventListener('click', saveFromModal);
+  $('deleteBtn').addEventListener('click', deleteFromModal);
+  $('modalBackdrop').addEventListener('click', (e) => {
+    if (e.target === $('modalBackdrop')) closeModal();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // ---------- Render ----------
+  function render() {
+    $('monthTitle').innerHTML = `${monthName(viewDate)} <small>${viewDate.getFullYear()}</small>`;
+
+    // month grid (Mon-start)
+    const first = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+    const last = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+
+    const startIndex = monStartIndex(first); // 0..6
+    const totalDays = last.getDate();
+
+    // previous month trailing days
+    const prevLast = new Date(viewDate.getFullYear(), viewDate.getMonth(), 0);
+    const prevDays = prevLast.getDate();
+
+    const cells = [];
+    for (let i = 0; i < startIndex; i++) {
+      const dayNum = prevDays - (startIndex - 1 - i);
+      const d = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, dayNum);
+      cells.push({ date: d, muted: true });
+    }
+    for (let i = 1; i <= totalDays; i++) {
+      const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), i);
+      cells.push({ date: d, muted: false });
+    }
+    // next month leading days to fill 6 rows (42 cells)
+    while (cells.length < 42) {
+      const i = cells.length - (startIndex + totalDays) + 1;
+      const d = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, i);
+      cells.push({ date: d, muted: true });
+    }
+
+    const today = ymd(new Date());
+
+    $('days').innerHTML = cells.map(({date, muted}) => {
+      const key = ymd(date);
+      const isToday = key === today;
+      const isSelected = key === selectedDate;
+      const dayEvents = (events[key] || []).slice(0, 3);
+      const extra = (events[key] || []).length - dayEvents.length;
+
+      return `
+        <div class="day ${muted ? 'muted' : ''} ${isToday ? 'today' : ''}" data-ymd="${key}" style="outline:${isSelected ? '2px solid var(--accent)' : 'none'}; outline-offset:-2px;">
+          <div class="num">${date.getDate()}</div>
+          <div class="badges">
+            ${dayEvents.map(ev => `<span class="badge" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</span>`).join('')}
+            ${extra > 0 ? `<span class="badge" title="More events">+${extra} more</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // attach day click handlers
+    [...$('days').querySelectorAll('.day')].forEach(el => {
+      el.addEventListener('click', () => {
+        selectedDate = el.getAttribute('data-ymd');
+        renderSide();
+        // visually refresh selection without re-rendering entire month
+        render();
+      });
+    });
+
+    renderSide();
+  }
+
+  function renderSide() {
+    const d = parseYMD(selectedDate) || new Date();
+    $('selectedTitle').textContent = formatHuman(d);
+
+    const list = events[selectedDate] || [];
+    $('eventsList').innerHTML = '';
+
+    $('addBtn').disabled = readOnly;
+
+    if (readOnly) {
+      $('selectedHint').innerHTML = `You’re viewing a <b>shared, read-only</b> calendar link. If you want to edit, open the app without a share link and use <span class="kbd">Import JSON</span> to load events.`;
+    } else {
+      $('selectedHint').innerHTML = `Click <b>+ Add</b> to add an event for this day. Use <b>Share link</b> to publish your calendar to your audience.`;
+    }
+
+    if (list.length === 0) {
+      $('eventsList').innerHTML = `<div class="hint">No events for this day.</div>`;
+      return;
+    }
+
+    const sorted = [...list].sort((a,b) => (a.time||'').localeCompare(b.time||'') || (a.ts||0)-(b.ts||0));
+    $('eventsList').innerHTML = sorted.map(ev => {
+      const time = ev.time ? `• ${escapeHtml(ev.time)}` : '';
+      return `
+        <div class="event">
+          <div class="row">
+            <div>
+              <div class="title">${escapeHtml(ev.title)}</div>
+              <div class="meta">${selectedDate} ${time}</div>
+            </div>
+            <div class="rowbtns">
+              <button class="btn" data-edit="${ev.id}" ${readOnly ? 'disabled' : ''}>Edit</button>
+            </div>
+          </div>
+          ${ev.notes ? `<div class="notes">${escapeHtml(ev.notes)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    [...$('eventsList').querySelectorAll('button[data-edit]')].forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-edit');
+        openModalForEdit(id);
+      });
+    });
+  }
+
+  // ---------- Modal logic ----------
+  function openModalForNew() {
+    if (readOnly) return;
+    editingId = null;
+    $('modalTitle').textContent = 'Add event';
+    $('modalDate').textContent = selectedDate;
+    $('eventTitle').value = '';
+    $('eventTime').value = '';
+    $('eventNotes').value = '';
+    $('deleteBtn').style.display = 'none';
+    openModal();
+    $('eventTitle').focus();
+  }
+
+  function openModalForEdit(id) {
+    if (readOnly) return;
+    const list = events[selectedDate] || [];
+    const ev = list.find(x => x.id === id);
+    if (!ev) return;
+
+    editingId = id;
+    $('modalTitle').textContent = 'Edit event';
+    $('modalDate').textContent = selectedDate;
+    $('eventTitle').value = ev.title || '';
+    $('eventTime').value = ev.time || '';
+    $('eventNotes').value = ev.notes || '';
+    $('deleteBtn').style.display = 'inline-block';
+    openModal();
+    $('eventTitle').focus();
+  }
+
+  function openModal() {
+    $('modalBackdrop').style.display = 'flex';
+  }
+
+  function closeModal() {
+    $('modalBackdrop').style.display = 'none';
+    editingId = null;
+  }
+
+  function saveFromModal() {
+    if (readOnly) return;
+    const title = ($('eventTitle').value || '').trim();
+    const time = ($('eventTime').value || '').trim();
+    const notes = ($('eventNotes').value || '').trim();
+
+    if (!title) {
+      alert('Please enter a title.');
+      return;
+    }
+
+    const list = events[selectedDate] ? [...events[selectedDate]] : [];
+
+    if (editingId) {
+      const idx = list.findIndex(x => x.id === editingId);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], title, time, notes };
+      }
+    } else {
+      list.push({
+        id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2),
+        title, time, notes, ts: Date.now()
+      });
+    }
+
+    events[selectedDate] = list;
+    saveLocalEvents(events);
+    closeModal();
+    render();
+  }
+
+  function deleteFromModal() {
+    if (readOnly) return;
+    if (!editingId) return;
+    if (!confirm('Delete this event?')) return;
+
+    const list = events[selectedDate] ? [...events[selectedDate]] : [];
+    events[selectedDate] = list.filter(x => x.id !== editingId);
+    if (events[selectedDate].length === 0) delete events[selectedDate];
+
+    saveLocalEvents(events);
+    closeModal();
+    render();
+  }
+
+  // ---------- Helpers ----------
+  function monthName(d) {
+    return d.toLocaleString(undefined, { month: 'long' });
+  }
+
+  function addMonths(d, delta) {
+    return new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  }
+
+  function monStartIndex(date) {
+    // convert Sun(0)..Sat(6) to Mon(0)..Sun(6)
+    const dow = date.getDay();
+    return (dow + 6) % 7;
+  }
+
+  function ymd(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2,'0');
+    const d = String(date.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function parseYMD(s) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s||'')) return null;
+    const [y,m,d] = s.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    if (dt && dt.getFullYear()===y && dt.getMonth()===(m-1) && dt.getDate()===d) return dt;
+    return null;
+  }
+
+  function formatHuman(date) {
+    return date.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  }
+
+  function loadLocalEvents() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      return sanitizeEvents(JSON.parse(raw));
+    } catch {
+      return {};
+    }
+  }
+
+  function saveLocalEvents(obj) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+  }
+
+  function sanitizeEvents(obj) {
+    const clean = {};
+    for (const k of Object.keys(obj || {})) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue;
+      const arr = Array.isArray(obj[k]) ? obj[k] : [];
+      clean[k] = arr
+        .filter(x => x && typeof x === 'object')
+        .map(x => ({
+          id: String(x.id || (Date.now()+Math.random())),
+          title: String(x.title || '').slice(0,80),
+          time: String(x.time || '').slice(0,20),
+          notes: String(x.notes || '').slice(0,1200),
+          ts: Number(x.ts || Date.now())
+        }))
+        .slice(0, 100);
+      if (clean[k].length === 0) delete clean[k];
+    }
+    return clean;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#39;');
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+  }
+
+  function showToast(msg, code) {
+    $('toastMsg').textContent = msg;
+    $('toastCode').textContent = code ? (String(code).slice(0, 90) + (String(code).length > 90 ? '…' : '')) : '';
+    $('toast').style.display = 'flex';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => $('toast').style.display = 'none', 3200);
+  }
+
+  function downloadFile(filename, content, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- Share link encoding ----------
+  // Encodes JSON into base64url to keep URLs shorter.
+  function buildShareUrl(payload) {
+    const base = location.origin + location.pathname;
+    const json = JSON.stringify(payload);
+    const b64 = base64UrlEncode(json);
+    return `${base}?share=${b64}`;
+  }
+
+  function getSharedDataFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const share = params.get('share');
+    if (!share) return null;
+    try {
+      const json = base64UrlDecode(share);
+      const parsed = JSON.parse(json);
+      if (!parsed || typeof parsed !== 'object') return null;
+      // guard size
+      const safe = {
+        selectedDate: typeof parsed.selectedDate === 'string' ? parsed.selectedDate : null,
+        viewYMD: typeof parsed.viewYMD === 'string' ? parsed.viewYMD : null,
+        events: sanitizeEvents(parsed.events || {})
+      };
+      return safe;
+    } catch {
+      return null;
+    }
+  }
+
+  function base64UrlEncode(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    bytes.forEach(b => bin += String.fromCharCode(b));
+    const b64 = btoa(bin)
+      .replaceAll('+','-')
+      .replaceAll('/','_')
+      .replaceAll('=','');
+    return b64;
+  }
+
+  function base64UrlDecode(b64url) {
+    let b64 = b64url.replaceAll('-','+').replaceAll('_','/');
+    while (b64.length % 4) b64 += '=';
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
+  // ---------- ICS export (basic) ----------
+  function toICS(eventsObj) {
+    // Simple all-day events; if time exists, we still export as DTSTART with local time.
+    const lines = [];
+    lines.push('BEGIN:VCALENDAR');
+    lines.push('VERSION:2.0');
+    lines.push('PRODID:-//Shareable Calendar//EN');
+
+    const keys = Object.keys(eventsObj || {}).sort();
+    for (const day of keys) {
+      const list = Array.isArray(eventsObj[day]) ? eventsObj[day] : [];
+      for (const ev of list) {
+        const uid = (ev.id || (Date.now()+'')) + '@shareable-calendar';
+        const dtstamp = toICSDateTime(new Date());
+
+        // DTSTART: if time looks like HH:MM use local datetime; else all-day.
+        const timeMatch = (ev.time || '').match(/^\s*(\d{1,2}):(\d{2})/);
+        let dtstart;
+        if (timeMatch) {
+          const [y,m,d] = day.split('-').map(Number);
+          const hh = Number(timeMatch[1]);
+          const mm = Number(timeMatch[2]);
+          dtstart = toICSLocalDateTime(new Date(y, m-1, d, hh, mm, 0));
+        } else {
+          dtstart = day.replaceAll('-','');
+        }
+
+        lines.push('BEGIN:VEVENT');
+        lines.push('UID:' + escapeICSText(uid));
+        lines.push('DTSTAMP:' + dtstamp);
+        if (timeMatch) {
+          lines.push('DTSTART:' + dtstart);
+          // 60-minute default duration
+          const end = addMinutes(parseICSLocal(dtstart), 60);
+          lines.push('DTEND:' + toICSLocalDateTime(end));
+        } else {
+          lines.push('DTSTART;VALUE=DATE:' + dtstart);
+          // DTEND is non-inclusive, next day
+          const next = parseYMD(day);
+          const nextDay = addMinutes(new Date(next.getFullYear(), next.getMonth(), next.getDate()+1, 0,0,0), 0);
+          lines.push('DTEND;VALUE=DATE:' + ymd(nextDay).replaceAll('-',''));
+        }
+        lines.push('SUMMARY:' + escapeICSText(ev.title || 'Event'));
+        if (ev.notes) lines.push('DESCRIPTION:' + escapeICSText(ev.notes));
+        lines.push('END:VEVENT');
+      }
+    }
+
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+
+  function toICSDateTime(d) {
+    // UTC
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth()+1).padStart(2,'0');
+    const da = String(d.getUTCDate()).padStart(2,'0');
+    const hh = String(d.getUTCHours()).padStart(2,'0');
+    const mm = String(d.getUTCMinutes()).padStart(2,'0');
+    const ss = String(d.getUTCSeconds()).padStart(2,'0');
+    return `${y}${m}${da}T${hh}${mm}${ss}Z`;
+  }
+
+  function toICSLocalDateTime(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const da = String(d.getDate()).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    const ss = String(d.getSeconds()).padStart(2,'0');
+    return `${y}${m}${da}T${hh}${mm}${ss}`;
+  }
+
+  function parseICSLocal(dt) {
+    // YYYYMMDDTHHMMSS
+    const m = dt.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/);
+    if (!m) return new Date();
+    return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]));
+  }
+
+  function addMinutes(d, mins) {
+    return new Date(d.getTime() + mins*60000);
+  }
+
+  function escapeICSText(s) {
+    return String(s || '')
+      .replaceAll('\\', '\\\\')
+      .replaceAll('\n', '\\n')
+      .replaceAll(',', '\\,')
+      .replaceAll(';', '\\;');
+  }
+
+  // ---------- Start ----------
+  render();
+})();
+</script>
+</body>
+</html>
 
